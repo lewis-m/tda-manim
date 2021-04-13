@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-import simplicial_complex
+from simplicial_complex import *
+from filtrations import *
 
 import numpy as np
 import gudhi as g
@@ -18,10 +19,11 @@ class ExampleScene(Scene):
         for s, v in zip(sc, filtration):
             st.insert(s, v)
 
-        simp_comp = SweepingPlaneFiltration(st, points, normal_vector=np.array([1, 1, 0]))
+        simp_comp = RipsFiltration(points, 2)
         # self.play(ShowCreation(simp_comp))
         self.add(simp_comp)
         self.wait(2)
         self.play(simp_comp.animate_filtration())
+        self.wait(2)
+        self.play(simp_comp.animate_reverse_filtration(to_fv=0))
         self.wait(5)
-
