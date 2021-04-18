@@ -10,9 +10,9 @@ from manimlib.mobject.geometry import Line
 
 # TODO: Fix opacity adaption in filtering
 # TODO: Keep 0-simplices in foreground
-# TODO: Use Ripser for VR with 2 simplices
 
 class Filtration(SimplicialComplex):
+
     CONFIG = {
         'simplex_color_0': RED,
         'simplex_width_0': 0.5,
@@ -51,7 +51,7 @@ class Filtration(SimplicialComplex):
                     self.mobject_dict[str(s)].set_fill(color=self.CONFIG['pre_filter_color'],
                                                        opacity=0.5)
                     self.mobject_dict[str(s)].set_stroke(color=self.CONFIG['pre_filter_color'],
-                                                         width=self.mobject_dict[str(s)].stroke_width / 100,
+                                                         width=self.mobject_dict[str(s)].stroke_width,
                                                          opacity=0.5)
         else:
             for s, _ in self.simp_comp.get_simplices():
@@ -190,6 +190,7 @@ class SweepingPlaneFiltration(Filtration):
         p1 = -max_length * line_vector + self.current_fv * self.normal_vector
         p2 = max_length * line_vector + self.current_fv * self.normal_vector
         self.line = Line(p1, p2, color=self.CONFIG['plane_color'], width=self.CONFIG['plane_width'])
+        self.add(self.line)
 
     def animate_filtration(self, to_fv=None):
         if to_fv is None:
@@ -218,7 +219,7 @@ class SweepingPlaneFiltration(Filtration):
                 anim_grp.anims_with_timings.append(
                     (a, v, end_time)
                 )
-            anim_grp.anims_with_timings.append((anims[-1], 0, to_fv - self.current_fv))
+            anim_grp.anims_with_timings.append((anims[-1], 0, max(to_fv - self.current_fv, 2**-10)))
 
             if anim_grp.anims_with_timings:
                 anim_grp.max_end_time = np.max([
@@ -256,7 +257,7 @@ class SweepingPlaneFiltration(Filtration):
             self.line.generate_target()
             self.line.target.shift((to_fv - self.current_fv) * self.normal_vector)
 
-            anims.append(MoveToTarget(self.line, rate_func=linear, run_time=self.current_fv - to_fv))
+            anims.append(MoveToTarget(self.line, rate_func=linear, run_time=max(self.current_fv - to_fv, 2**-10)))
 
             anim_grp = AnimationGroup(*anims, lag_ratio=0)
             anim_grp.anims_with_timings = []
@@ -265,7 +266,7 @@ class SweepingPlaneFiltration(Filtration):
                 anim_grp.anims_with_timings.append(
                     (a, v, end_time)
                 )
-            anim_grp.anims_with_timings.append((anims[-1], 0, self.current_fv - to_fv))
+            anim_grp.anims_with_timings.append((anims[-1], 0, max(self.current_fv - to_fv, 2**-10)))
 
             if anim_grp.anims_with_timings:
                 anim_grp.max_end_time = np.max([
@@ -283,6 +284,25 @@ class SweepingPlaneFiltration(Filtration):
         else:
             return AnimationGroup([])
 
+    def update_direction(self, new_direction):
+        self.normal_vector = new_direction / np.linalg.norm(new_direction)
+        self.current_fv = self.min_fv
+
+        for s, _ in self.simp_comp.get_simplices():
+            self.simp_comp.assign_filtration(s, max([points[vertex].dot(self.normal_vector) for vertex in s]))
+
+        max_length = np.max(np.linalg.norm(self.points, axis=1)) * self.CONFIG['plane_expansion']
+        line_vector = np.array([1, 0, 0]) if self.normal_vector[0] == 0 else \
+            np.array([-self.normal_vector[1] / self.normal_vector[0], 1, 0])
+        line_vector /= np.linalg.norm(line_vector)
+
+        p1 = -max_length * line_vector + self.current_fv * self.normal_vector
+        p2 = max_length * line_vector + self.current_fv * self.normal_vector
+        self.line = Line(p1, p2, color=self.CONFIG['plane_color'], width=self.CONFIG['plane_width'])
+        self.add(self.line)
+
+        return AnimationGroup(ShowCreation(self.line), self.animate_filtration(self.current_fv), run_time=2**-10)
+
     @property
     def sweeping_plane(self):
         return self.line
@@ -294,6 +314,10 @@ class SweepingPlaneFiltration(Filtration):
     def remove_sweeping_plane(self):
         self.remove(self.line)
         return self
+
+    @property
+    def size(self):
+        return super().size * self.CONFIG['plane_expansion']
 
 
 class ExpandingBallFiltration(Filtration):
@@ -404,12 +428,18 @@ class ExpandingBallFiltration(Filtration):
         else:
             return AnimationGroup([])
 
+    @property
+    def size(self):
+        return super().size + self.offset
+
 
 class RipsFiltration(ExpandingBallFiltration):
 
-    def __init__(self, points: np.ndarray, max_radius, **kwargs):
+    def __init__(self, points: np.ndarray, max_radius, max_dimension=2, **kwargs):
         self.max_radius = max_radius
-        vr = g.RipsComplex(points=points, max_edge_length=self.max_radius).create_simplex_tree()
+        self.max_dimension = max_dimension
+        vr = g.RipsComplex(points=points, max_edge_length=self.max_radius)
+        vr = vr.create_simplex_tree(max_dimension=self.max_dimension)
 
         def expansion_func(x):
             if x <= 0:

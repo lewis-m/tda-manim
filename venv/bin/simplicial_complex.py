@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
+from scipy.spatial.distance import pdist
 import gudhi as g
 
 from manimlib.imports import *
@@ -27,6 +28,9 @@ class SimplicialComplex(VGroup):
             points = np.concatenate((points, np.zeros((points.shape[0], 1))), axis=0)
         assert points.shape[1] == 3
         assert points.shape[0] == simp_comp.num_vertices()
+
+        if simp_comp.dimension() > 2:
+            simp_comp.set_dimension(2)
 
         self.simp_comp = simp_comp
         self.points = points
@@ -76,5 +80,10 @@ class SimplicialComplex(VGroup):
 
     def change_simplex_opacity(self, *simplices, opacity=1):
         for s in simplices:
-            self.mobject_dict[str(s)].set_fill(self.mobject_dict[s].CONFIG['fill_color'], opacity)
+            self.mobject_dict[str(s)].set_fill(self.mobject_dict[str(s)].CONFIG['fill_color'], opacity)
         return self
+
+    @property
+    def size(self):
+        x_size, y_size = np.max(pdist(self.points[:, 0])), np.max(pdist(self.points[:, 1]))
+        return max(x_size, y_size)
