@@ -45,7 +45,7 @@ class ECTFunction(VGroup):
         self.discrete_ect_mobjects = []
         p = np.array([*self.coords_to_point(self.x_min, self.ect_discr(self.x_crit[0]))])
         l = Line(p, p, color=self.CONFIG['discrete_graph_color'])
-        self.discrete_ect.append(l)
+        self.discrete_ect_mobjects.append(l)
         self.add(l)
 
         def parameterized_function(alpha):
@@ -353,22 +353,22 @@ class ECTFunction(VGroup):
                 line.shift(self.mean * DOWN)
                 return line
 
-            anims = [ApplyFunction(shift_down, line) for line in self.discrete_ect]
-            self.ect_discr = lambda x: self.ect_discr(x) - self.mean
+            anims = [ApplyFunction(shift_down, line) for line in self.discrete_ect_mobjects]
+            #self.ect_discr = lambda x: self.ect_discr(x) - self.mean
             return AnimationGroup(*anims)
         else:
             def shift_up(line):
                 line.shift(self.mean * UP)
                 return line
 
-            anims = [ApplyFunction(shift_up, line) for line in self.discrete_ect]
-            self.ect_discr = lambda x: self.ect_discr(x) + self.ect_discr(self.x_min)
+            anims = [ApplyFunction(shift_up, line) for line in self.discrete_ect_mobjects]
+            #self.ect_discr = lambda x: self.ect_discr(x) + self.ect_discr(self.x_min)
             return AnimationGroup(*anims)
 
     def drop_current_graphs(self):
         self.discrete_dump += self.discrete_ect_mobjects
         self.smooth_dump += self.smooth_ect_mobjects
-        self.current_fv_d, self.current_fv_s = 0, 0
+        self.current_fv_d, self.current_fv_s = self.x_min, self.x_min
 
         p = np.array([*self.coords_to_point(self.x_min, self.ect_discr(self.x_crit[0]))])
         l = Line(p, p, color=self.CONFIG['discrete_graph_color'])

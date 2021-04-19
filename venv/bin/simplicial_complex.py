@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from scipy.spatial.distance import pdist
+from scipy.spatial.distance import minkowski
 import gudhi as g
 
 from manimlib.imports import *
@@ -11,7 +11,7 @@ from manimlib.mobject.geometry import Line
 class SimplicialComplex(VGroup):
     CONFIG = {
         'simplex_color_0': RED,
-        'simplex_width_0': 2,
+        'simplex_width_0': 0.000001,
         'simplex_opacity_0': 1,
         'simplex_color_1': WHITE,
         'simplex_width_1': 1,
@@ -25,7 +25,7 @@ class SimplicialComplex(VGroup):
         digest_config(self, kwargs)
 
         if points.shape[1] == 2:
-            points = np.concatenate((points, np.zeros((points.shape[0], 1))), axis=0)
+            points = np.concatenate((points, np.zeros((points.shape[0], 1))), axis=1)
         assert points.shape[1] == 3
         assert points.shape[0] == simp_comp.num_vertices()
 
@@ -43,10 +43,10 @@ class SimplicialComplex(VGroup):
         for i in [3, 2, 1]:
             for s, _ in self.simp_comp.get_simplices():
                 if len(s) == 1 == i:
-                    d = Dot(self.points[s[0]])
-                    d.set_stroke(self.CONFIG['simplex_color_0'], self.CONFIG['simplex_width_0'],
+                    d = Dot(self.points[s[0]], radius=self.CONFIG['simplex_width_0'])
+                    d.set_stroke(self.CONFIG['simplex_color_0'], 1,
                                  self.CONFIG['simplex_opacity_0'])
-                    d.set_fill(self.CONFIG['simplex_color_0'], self.CONFIG['simplex_width_0'],
+                    d.set_fill(self.CONFIG['simplex_color_0'],
                                self.CONFIG['simplex_opacity_0'])
                     self.add(d)
                     self.mobject_dict[str(s)] = d
@@ -85,5 +85,6 @@ class SimplicialComplex(VGroup):
 
     @property
     def size(self):
-        x_size, y_size = np.max(pdist(self.points[:, 0])), np.max(pdist(self.points[:, 1]))
+        x_size, y_size = np.max(minkowski(self.points[:, 0], self.points[:, 0])),\
+                         np.max(minkowski(self.points[:, 1], self.points[:, 1]))
         return max(x_size, y_size)

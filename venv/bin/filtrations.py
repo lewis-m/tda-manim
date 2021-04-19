@@ -15,7 +15,7 @@ class Filtration(SimplicialComplex):
 
     CONFIG = {
         'simplex_color_0': RED,
-        'simplex_width_0': 0.5,
+        'simplex_width_0': 0.05,
         'simplex_opacity_0': 1,
         'simplex_color_1': WHITE,
         'simplex_width_1': 2,
@@ -170,11 +170,14 @@ class Filtration(SimplicialComplex):
 class SweepingPlaneFiltration(Filtration):
 
     def __init__(self, simp_comp: g.SimplexTree, points: np.ndarray, normal_vector, plane_computed=False,
-                 plane_color=YELLOW, plane_width=1, plane_expansion=1.2, **kwargs):
+                 plane_color=YELLOW, plane_width=1, plane_expansion=1.2, extra_mobjects=[], **kwargs):
         self.normal_vector = normal_vector / np.linalg.norm(normal_vector)
         self.CONFIG['plane_color'] = plane_color
         self.CONFIG['plane_width'] = plane_width
         self.CONFIG['plane_expansion'] = plane_expansion
+
+        if points.shape[1] == 2:
+            points = np.concatenate((points, np.zeros((points.shape[0], 1))), axis=1)
 
         if not plane_computed:
             for s, _ in simp_comp.get_simplices():
@@ -185,12 +188,13 @@ class SweepingPlaneFiltration(Filtration):
         max_length = np.max(np.linalg.norm(self.points, axis=1)) * self.CONFIG['plane_expansion']
         line_vector = np.array([1, 0, 0]) if self.normal_vector[0] == 0 else \
             np.array([-self.normal_vector[1] / self.normal_vector[0], 1, 0])
-        line_vector /= np.linalg.norm(line_vector)
+        line_vector = line_vector / np.linalg.norm(line_vector)
 
         p1 = -max_length * line_vector + self.current_fv * self.normal_vector
         p2 = max_length * line_vector + self.current_fv * self.normal_vector
         self.line = Line(p1, p2, color=self.CONFIG['plane_color'], width=self.CONFIG['plane_width'])
         self.add(self.line)
+        self.add(*extra_mobjects)
 
     def animate_filtration(self, to_fv=None):
         if to_fv is None:
@@ -198,6 +202,7 @@ class SweepingPlaneFiltration(Filtration):
 
         if to_fv >= self.current_fv:
             anims, fvs = [], []
+            print(self.current_fv)
             for s, v in self.simp_comp.get_filtration():
                 if self.current_fv <= v <= to_fv:
                     anims.append(ApplyFunction(self.change_simplex, self.mobject_dict[str(s)], run_time=0.01))
@@ -285,23 +290,23 @@ class SweepingPlaneFiltration(Filtration):
             return AnimationGroup([])
 
     def update_direction(self, new_direction):
+        a = self.animate_reverse_filtration()
         self.normal_vector = new_direction / np.linalg.norm(new_direction)
-        self.current_fv = self.min_fv
+        self.current_fv = self.min_fv - self.offset
 
         for s, _ in self.simp_comp.get_simplices():
-            self.simp_comp.assign_filtration(s, max([points[vertex].dot(self.normal_vector) for vertex in s]))
+            self.simp_comp.assign_filtration(s, max([self.points[vertex].dot(self.normal_vector) for vertex in s]))
 
         max_length = np.max(np.linalg.norm(self.points, axis=1)) * self.CONFIG['plane_expansion']
         line_vector = np.array([1, 0, 0]) if self.normal_vector[0] == 0 else \
             np.array([-self.normal_vector[1] / self.normal_vector[0], 1, 0])
-        line_vector /= np.linalg.norm(line_vector)
+        line_vector = line_vector / np.linalg.norm(line_vector)
 
         p1 = -max_length * line_vector + self.current_fv * self.normal_vector
         p2 = max_length * line_vector + self.current_fv * self.normal_vector
-        self.line = Line(p1, p2, color=self.CONFIG['plane_color'], width=self.CONFIG['plane_width'])
-        self.add(self.line)
+        line = Line(p1+self.get_center(), p2+self.get_center(), color=self.CONFIG['plane_color'], width=self.CONFIG['plane_width'])
 
-        return AnimationGroup(ShowCreation(self.line), self.animate_filtration(self.current_fv), run_time=2**-10)
+        return AnimationGroup(a, Transform(self.line, line), lag_ratio=1, run_time=2**-10)
 
     @property
     def sweeping_plane(self):
