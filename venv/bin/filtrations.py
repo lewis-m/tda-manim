@@ -469,6 +469,9 @@ class CechFiltration(ExpandingBallFiltration):
         self.max_radius = max_radius
         alpha = g.AlphaComplex(points=points).create_simplex_tree(max_alpha_square=self.max_radius**2)
 
+        for simplex, fv in alpha.get_filtration():
+            alpha.assign_filtration(simplex, np.sqrt(fv))
+
         def expansion_func(x):
             if x <= 0:
                 return 0

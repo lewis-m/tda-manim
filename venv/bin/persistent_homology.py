@@ -11,9 +11,15 @@ from manimlib.imports import *
 from manimlib.mobject.geometry import Line
 
 
+# TODO: add automated scaling (including time)
+# TODO: add automated arrangement
+
+
 class ECT(VGroup):
 
-    def __init__(self, simp_comp, points, direction, extra_filt_mobjects=[], extra_vis_mobjects=[], **kwargs):
+    def __init__(self, simp_comp, points, direction, extra_filt_mobjects=[], extra_vis_mobjects=[],
+                 previous_vis_mobjects=[],
+                 **kwargs):
         VGroup.__init__(self, **kwargs)
 
         direction = direction / np.linalg.norm(direction)
@@ -30,7 +36,7 @@ class ECT(VGroup):
         y_min, y_max = min(ect), max(max(ect), 1)
 
         self.ect_vis = ECTFunction(self.min_fv, self.max_fv, y_min, y_max,
-                                   self.euler_critical_points, self.ect)
+                                   self.euler_critical_points, self.ect, extra_vis_mobjects, previous_vis_mobjects)
         self.ect_vis.add(*extra_vis_mobjects)
 
         self.ect_vis.scale(0.6)  # need automated scaling
@@ -135,3 +141,124 @@ class ECT(VGroup):
 
     def animate_discrete_mean_shift(self):
         return self.ect_vis.animate_discrete_mean_shift()
+
+
+class PersistentHomology(VGroup):
+
+    def __init__(self, simp_comp, points, hom_dim=0):
+        super().__init__()
+        self.filtration = Filtration(simp_comp, points, 'appearing')
+        self.hom_dim = hom_dim
+        self.barcode = Barcode(self.extract_barcode_in_dim(self.filtration.simp_comp.persistence(), self.hom_dim),
+                               self.min_fv, self.max_fv)
+        self.add(self.filtration)
+        self.barcode.scale(0.6)
+        self.add(self.barcode)
+        self.arrange(5 * RIGHT, aligned_edge=DOWN)
+
+    @staticmethod
+    def extract_barcode_in_dim(barcode, dim):
+        new_barcode = []
+        for bar in barcode:
+            if bar[0] == dim:
+                new_barcode.append(bar[1])
+        return new_barcode
+
+    def animate_filtration(self, to_fv=None):
+        if to_fv is None:
+            to_fv = self.max_fv
+
+        anims, fvs = [], []
+        if self.filtration.current_fv <= to_fv <= self.max_fv:
+            fvs.append(self.filtration.current_fv)
+            anims.append(self.filtration.animate_filtration(to_fv))
+
+        if self.barcode.current_fv <= to_fv <= self.max_fv:
+            fvs.append(self.barcode.current_fv)
+            anims.append(self.barcode.animate_barcode(to_fv))
+
+        fvs = np.array(fvs)
+        anim_grp = AnimationGroup(*anims, lag_ratio=0)
+        anim_grp.anims_with_timings = []
+        for a, v in zip(anims, fvs - np.min(fvs)):
+            end_time = v + a.get_run_time()
+            anim_grp.anims_with_timings.append(
+                (a, v, end_time)
+            )
+
+        if anim_grp.anims_with_timings:
+            anim_grp.max_end_time = np.max([
+                awt[2] for awt in anim_grp.anims_with_timings
+            ])
+        else:
+            anim_grp.max_end_time = 0
+        if anim_grp.run_time is None:
+            anim_grp.run_time = anim_grp.max_end_time
+
+        anim_grp.max_end_time = to_fv - np.min(fvs) if fvs.size > 0 else 0
+        anim_grp.run_time = to_fv - np.min(fvs) if fvs.size > 0 else 0
+        return anim_grp
+
+    def animate_reverse_filtration(self, to_fv=None):
+        if to_fv is None:
+            to_fv = self.min
+
+        anims, fvs = [], []
+        if self.filtration.current_fv >= to_fv >= self.min_fv:
+            fvs.append(self.filtration.current_fv)
+            anims.append(self.filtration.animate_reverse_filtration(to_fv))
+
+        if self.barcode.current_fv >= to_fv >= self.min_fv:
+            fvs.append(self.barcode.current_fv)
+            anims.append(self.barcode.animate_reverse_barcode(to_fv))
+
+        fvs = np.array(fvs)
+        anim_grp = AnimationGroup(*anims, lag_ratio=0)
+        anim_grp.anims_with_timings = []
+        if fvs.size > 0:
+            for a, v in zip(anims, np.max(fvs) - fvs):
+                end_time = v + a.get_run_time()
+                anim_grp.anims_with_timings.append(
+                    (a, v, end_time)
+                )
+
+            if anim_grp.anims_with_timings:
+                anim_grp.max_end_time = np.max([
+                    awt[2] for awt in anim_grp.anims_with_timings
+                ])
+            else:
+                anim_grp.max_end_time = 0
+            if anim_grp.run_time is None:
+                anim_grp.run_time = anim_grp.max_end_time
+
+        anim_grp.max_end_time = -(to_fv - np.max(fvs)) if fvs.size > 0 else 0
+        anim_grp.run_time = -(to_fv - np.max(fvs)) if fvs.size > 0 else 0
+        return anim_grp
+
+    @property
+    def min_fv(self):
+        return self.filtration.min_fv - self.filtration.offset
+
+    @property
+    def max_fv(self):
+        return self.filtration.max_fv + self.filtration.offset
+
+
+class CechPersistence(PersistentHomology):
+
+    def __init__(self, points, max_radius, hom_dim=0):
+        filtration = CechFiltration(points, max_radius)
+        super().__init__(filtration.simp_comp, points, hom_dim)
+        self.remove(self.filtration)
+        self.filtration = filtration
+        self.add(self.filtration)
+
+
+class RipsPersistence(PersistentHomology):
+
+    def __init__(self, points, max_radius, hom_dim=0):
+        filtration = RipsFiltration(points, max_radius)
+        super().__init__(filtration.simp_comp, points, hom_dim)
+        self.remove(self.filtration)
+        self.filtration = filtration
+        self.add(self.filtration)
