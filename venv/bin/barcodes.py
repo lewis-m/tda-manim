@@ -9,7 +9,6 @@ from manimlib.mobject.geometry import Line
 
 
 # TODO: fix axes
-# TODO: fix multiple bar issue
 # TODO: fix moving ECTFunction as group issue
 
 
@@ -401,7 +400,7 @@ class ECTFunction(VGroup):
 
     @property
     def size(self):
-        return max(self.x_max - self.x_min, self.y_max - self.y_min + 0.2)
+        return max(self.x_axis_height, self.y_axis_height)
 
 
 class Barcode(VGroup):
@@ -413,12 +412,12 @@ class Barcode(VGroup):
         "x_tick_frequency": 1,
         "x_leftmost_tick": None,  # Change if different from x_min
         "x_labeled_nums": None,
-        "x_axis_label": "",
+        "y_axis_label": "",
         "y_axis_height": 6,
         "y_tick_frequency": 1,
         "y_bottom_tick": None,  # Change if different from y_min
         "y_labeled_nums": None,
-        "y_axis_label": "birth / death time",
+        "x_axis_label": "birth / death time",
         "axes_color": GREY,
         "graph_origin": 2.5 * DOWN + 4 * LEFT,
         "exclude_zero_label": True,
@@ -429,6 +428,7 @@ class Barcode(VGroup):
     def __init__(self, bars, min_fv, max_fv):
         super().__init__()
         self.bars = bars
+        self.distinguish_identical_bars()
         self.min_fv, self.max_fv = min_fv, max_fv
         self.current_fv = self.min_fv
         assert self.min_fv < self.max_fv
@@ -443,13 +443,18 @@ class Barcode(VGroup):
         self.animated_lines = dict({})
         self.setup_axes()
 
+    def distinguish_identical_bars(self):
+        for i in range(1, len(self.bars)):
+            while self.bars[i] in self.bars[:i]:
+                self.bars[i] = (self.bars[i][0], self.bars[i][1] + 10 ** -6)
+
     def setup_axes(self):
         x_num_range = float(self.max_fv - self.min_fv)
         self.space_unit_to_x = self.x_axis_width / x_num_range
         if self.x_labeled_nums is None:
             self.x_labeled_nums = []
         if self.x_leftmost_tick is None:
-            self.x_leftmost_tick = self.min_fv
+            self.x_leftmost_tick = 0
         x_axis = NumberLine(
             x_min=self.min_fv,
             x_max=self.max_fv,
@@ -459,7 +464,8 @@ class Barcode(VGroup):
             numbers_with_elongated_ticks=self.x_labeled_nums,
             color=self.axes_color,
             stroke_width=1,
-            include_tip=False
+            include_tip=False,
+            include_numbers=True
         )
         x_axis.shift(self.graph_origin - x_axis.number_to_point(0))
         if len(self.x_labeled_nums) > 0:
@@ -469,7 +475,7 @@ class Barcode(VGroup):
         if self.x_axis_label:
             x_label = TextMobject(self.x_axis_label)
             x_label.next_to(
-                x_axis.get_tick_marks(), UP + RIGHT,
+                self.graph_origin, 8 * DOWN + 4 * RIGHT,
                 buff=SMALL_BUFF
             )
             x_label.shift_onto_screen()
@@ -497,7 +503,7 @@ class Barcode(VGroup):
             include_tip=False,
             include_ticks=False
         )
-        y_axis.shift(self.graph_origin + y_axis.number_to_point(self.min_fv)[0] * RIGHT)
+        y_axis.shift(self.graph_origin + y_axis.number_to_point(self.min_fv))
         y_axis.rotate(np.pi / 2, about_point=y_axis.number_to_point(0))
         if len(self.y_labeled_nums) > 0:
             if self.exclude_zero_label:
@@ -515,6 +521,7 @@ class Barcode(VGroup):
 
             self.add(x_axis, y_axis)
         self.x_axis, self.y_axis = self.axes = VGroup(x_axis, y_axis)
+        self.add(self.axes)
 
         return self
 
@@ -615,3 +622,7 @@ class Barcode(VGroup):
             return anim_grp
         else:
             return AnimationGroup([])
+
+    @property
+    def size(self):
+        return max(self.x_axis_height, self.y_axis_height)

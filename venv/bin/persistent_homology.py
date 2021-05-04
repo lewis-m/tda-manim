@@ -17,18 +17,18 @@ from manimlib.mobject.geometry import Line
 
 class ECT(VGroup):
 
-    def __init__(self, simp_comp, points, direction, extra_filt_mobjects=[], extra_vis_mobjects=[],
+    def __init__(self, simp_comp, point_cloud, direction, extra_filt_mobjects=[], extra_vis_mobjects=[],
                  previous_vis_mobjects=[],
                  **kwargs):
         VGroup.__init__(self, **kwargs)
 
         direction = direction / np.linalg.norm(direction)
-        self.filtration = SweepingPlaneFiltration(simp_comp, points, direction, extra_mobjects=extra_filt_mobjects)
+        self.filtration = SweepingPlaneFiltration(simp_comp, point_cloud, direction, extra_mobjects=extra_filt_mobjects)
 
-        if points.shape[1] == 2:
-            points = np.concatenate((points, np.zeros((points.shape[0], 1))), axis=1)
+        if point_cloud.shape[1] == 2:
+            point_cloud = np.concatenate((point_cloud, np.zeros((point_cloud.shape[0], 1))), axis=1)
 
-        self.ect, self.euler_critical_points = euler_curve_callable([points[s] for s, _ in simp_comp.get_filtration()],
+        self.ect, self.euler_critical_points = euler_curve_callable([point_cloud[s] for s, _ in simp_comp.get_filtration()],
                                                                     direction,
                                                                     (self.min_fv, self.max_fv))
 
@@ -39,10 +39,11 @@ class ECT(VGroup):
                                    self.euler_critical_points, self.ect, extra_vis_mobjects, previous_vis_mobjects)
         self.ect_vis.add(*extra_vis_mobjects)
 
-        self.ect_vis.scale(0.6)  # need automated scaling
+        self.ect_vis.scale(3 / self.ect_vis.size)
+        self.filtration.scale(1 / self.filtration.size)
         self.add(self.filtration)
         self.add(self.ect_vis)
-        self.arrange(3 * RIGHT, aligned_edge=DOWN)  # need better arrangement
+        self.ect_vis.next_to(self.filtration, 5*RIGHT)
 
     @property
     def min_fv(self):
@@ -145,16 +146,18 @@ class ECT(VGroup):
 
 class PersistentHomology(VGroup):
 
-    def __init__(self, simp_comp, points, hom_dim=0):
+    def __init__(self, simp_comp, point_cloud, hom_dim=0):
         super().__init__()
-        self.filtration = Filtration(simp_comp, points, 'appearing')
+        self.filtration = Filtration(simp_comp, point_cloud, 'appearing')
         self.hom_dim = hom_dim
         self.barcode = Barcode(self.extract_barcode_in_dim(self.filtration.simp_comp.persistence(), self.hom_dim),
                                self.min_fv, self.max_fv)
         self.add(self.filtration)
-        self.barcode.scale(0.6)
+        self.barcode.scale(0.3)
         self.add(self.barcode)
-        self.arrange(5 * RIGHT, aligned_edge=DOWN)
+        #self.arrange(5 * RIGHT, aligned_edge=DOWN)
+        self.barcode.next_to(self.filtration, 5*RIGHT)
+        #self.shift(5 * LEFT)
 
     @staticmethod
     def extract_barcode_in_dim(barcode, dim):
@@ -246,9 +249,10 @@ class PersistentHomology(VGroup):
 
 class CechPersistence(PersistentHomology):
 
-    def __init__(self, points, max_radius, hom_dim=0):
-        filtration = CechFiltration(points, max_radius)
-        super().__init__(filtration.simp_comp, points, hom_dim)
+    def __init__(self, point_cloud, max_radius, hom_dim=0):
+        point_cloud += 3 * LEFT
+        filtration = CechFiltration(point_cloud, max_radius)
+        super().__init__(filtration.simp_comp, point_cloud, hom_dim)
         self.remove(self.filtration)
         self.filtration = filtration
         self.add(self.filtration)
@@ -256,9 +260,9 @@ class CechPersistence(PersistentHomology):
 
 class RipsPersistence(PersistentHomology):
 
-    def __init__(self, points, max_radius, hom_dim=0):
-        filtration = RipsFiltration(points, max_radius)
-        super().__init__(filtration.simp_comp, points, hom_dim)
+    def __init__(self, point_cloud, max_radius, hom_dim=0):
+        filtration = RipsFiltration(point_cloud, max_radius)
+        super().__init__(filtration.simp_comp, point_cloud, hom_dim)
         self.remove(self.filtration)
         self.filtration = filtration
         self.add(self.filtration)

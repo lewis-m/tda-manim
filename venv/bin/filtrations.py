@@ -26,8 +26,8 @@ class Filtration(SimplicialComplex):
         'pre_filter_opacity': lambda x: x / 2
     }
 
-    def __init__(self, simp_comp: g.SimplexTree, points: np.ndarray, display_type='color_change', offset=0.5, **kwargs):
-        super().__init__(simp_comp, points, True, **kwargs)
+    def __init__(self, simp_comp: g.SimplexTree, point_cloud: np.ndarray, display_type='color_change', offset=0.5, **kwargs):
+        SimplicialComplex.__init__(self, simp_comp, point_cloud, True, **kwargs)
 
         assert display_type in ['color_change', 'appearing']
         self.display_type = display_type
@@ -169,23 +169,23 @@ class Filtration(SimplicialComplex):
 
 class SweepingPlaneFiltration(Filtration):
 
-    def __init__(self, simp_comp: g.SimplexTree, points: np.ndarray, normal_vector, plane_computed=False,
+    def __init__(self, simp_comp: g.SimplexTree, point_cloud: np.ndarray, normal_vector, plane_computed=False,
                  plane_color=YELLOW, plane_width=1, plane_expansion=1.2, extra_mobjects=[], **kwargs):
         self.normal_vector = normal_vector / np.linalg.norm(normal_vector)
         self.CONFIG['plane_color'] = plane_color
         self.CONFIG['plane_width'] = plane_width
         self.CONFIG['plane_expansion'] = plane_expansion
 
-        if points.shape[1] == 2:
-            points = np.concatenate((points, np.zeros((points.shape[0], 1))), axis=1)
+        if point_cloud.shape[1] == 2:
+            point_cloud = np.concatenate((point_cloud, np.zeros((point_cloud.shape[0], 1))), axis=1)
 
         if not plane_computed:
             for s, _ in simp_comp.get_simplices():
-                simp_comp.assign_filtration(s, max([points[vertex].dot(self.normal_vector) for vertex in s]))
+                simp_comp.assign_filtration(s, max([point_cloud[vertex].dot(self.normal_vector) for vertex in s]))
 
-        Filtration.__init__(self, simp_comp, points, display_type='color_change', **kwargs)
+        Filtration.__init__(self, simp_comp, point_cloud, display_type='color_change', **kwargs)
 
-        max_length = np.max(np.linalg.norm(self.points, axis=1)) * self.CONFIG['plane_expansion']
+        max_length = np.max(np.linalg.norm(self.point_cloud, axis=1)) * self.CONFIG['plane_expansion']
         line_vector = np.array([1, 0, 0]) if self.normal_vector[0] == 0 else \
             np.array([-self.normal_vector[1] / self.normal_vector[0], 1, 0])
         line_vector = line_vector / np.linalg.norm(line_vector)
@@ -295,9 +295,9 @@ class SweepingPlaneFiltration(Filtration):
         self.current_fv = self.min_fv - self.offset
 
         for s, _ in self.simp_comp.get_simplices():
-            self.simp_comp.assign_filtration(s, max([self.points[vertex].dot(self.normal_vector) for vertex in s]))
+            self.simp_comp.assign_filtration(s, max([self.point_cloud[vertex].dot(self.normal_vector) for vertex in s]))
 
-        max_length = np.max(np.linalg.norm(self.points, axis=1)) * self.CONFIG['plane_expansion']
+        max_length = np.max(np.linalg.norm(self.point_cloud, axis=1)) * self.CONFIG['plane_expansion']
         line_vector = np.array([1, 0, 0]) if self.normal_vector[0] == 0 else \
             np.array([-self.normal_vector[1] / self.normal_vector[0], 1, 0])
         line_vector = line_vector / np.linalg.norm(line_vector)
@@ -322,14 +322,14 @@ class SweepingPlaneFiltration(Filtration):
 
     @property
     def size(self):
-        return super().size * self.CONFIG['plane_expansion']
+        return super(SweepingPlaneFiltration, self).size * self.plane_expansion
 
 
 class ExpandingBallFiltration(Filtration):
 
-    def __init__(self, simp_comp: g.SimplexTree, points: np.ndarray, expansion_func=None, ball_color=ORANGE,
+    def __init__(self, simp_comp: g.SimplexTree, point_cloud: np.ndarray, expansion_func=None, ball_color=ORANGE,
                  ball_opacity=0.2, ball_stroke_width=0.1, **kwargs):
-        Filtration.__init__(self, simp_comp, points, 'appearing', **kwargs)
+        Filtration.__init__(self, simp_comp, point_cloud, 'appearing', **kwargs)
         if expansion_func is None:
             expansion_func = lambda x: x if x >= 0 else 0
         self.expansion_func = expansion_func
@@ -340,7 +340,7 @@ class ExpandingBallFiltration(Filtration):
 
         self.circles = []
 
-        for p in self.points:
+        for p in self.point_cloud:
             c = Circle(arc_center=p, radius=self.expansion_func(self.current_fv))
             c.set_fill(self.CONFIG['ball_color'], self.CONFIG['ball_opacity'])
             c.set_stroke(self.CONFIG['ball_color'], self.CONFIG['ball_stroke_width'], self.CONFIG['ball_opacity'])
@@ -357,7 +357,7 @@ class ExpandingBallFiltration(Filtration):
                 if to_fv >= v >= self.current_fv:
                     anims.append(ApplyFunction(self.change_simplex, self.mobject_dict[str(s)], run_time=0.01))
                     fvs.append(v)
-            for c, p in zip(self.circles, self.points):
+            for c, p in zip(self.circles, self.point_cloud):
                 anims.append(Transform(c, target_mobject=Circle(arc_center=p, radius=self.expansion_func(to_fv)),
                                        run_time=to_fv - max(self.current_fv, 0), rate_func=linear))
                 fvs.append(max(self.current_fv, 0))
@@ -401,7 +401,7 @@ class ExpandingBallFiltration(Filtration):
                 if self.current_fv >= v >= to_fv:
                     anims.append(ApplyFunction(self.revert_simplex, self.mobject_dict[str(s)], run_time=0.01))
                     fvs.append(v)
-            for c, p in zip(self.circles, self.points):
+            for c, p in zip(self.circles, self.point_cloud):
                 anims.append(Transform(c, target_mobject=Circle(arc_center=p, radius=self.expansion_func(to_fv)),
                                        run_time=-(max(to_fv, 0) - max(self.current_fv, 0)), rate_func=linear))
                 fvs.append(max(self.current_fv, 0))
@@ -435,15 +435,15 @@ class ExpandingBallFiltration(Filtration):
 
     @property
     def size(self):
-        return super().size + self.offset
+        return super(ExpandingBallFiltration, self).size + self.max_fv + self.offset
 
 
 class RipsFiltration(ExpandingBallFiltration):
 
-    def __init__(self, points: np.ndarray, max_radius, max_dimension=2, **kwargs):
+    def __init__(self, point_cloud: np.ndarray, max_radius, max_dimension=2, **kwargs):
         self.max_radius = max_radius
         self.max_dimension = max_dimension
-        vr = g.RipsComplex(points=points, max_edge_length=self.max_radius)
+        vr = g.RipsComplex(points=point_cloud, max_edge_length=self.max_radius)
         vr = vr.create_simplex_tree(max_dimension=self.max_dimension)
 
         def expansion_func(x):
@@ -454,7 +454,7 @@ class RipsFiltration(ExpandingBallFiltration):
             else:
                 return max_radius
 
-        ExpandingBallFiltration.__init__(self, vr, points, expansion_func, **kwargs)
+        ExpandingBallFiltration.__init__(self, vr, point_cloud, expansion_func, **kwargs)
 
     def animate_filtration(self, to_fv=None):
         if to_fv is None:
@@ -465,9 +465,9 @@ class RipsFiltration(ExpandingBallFiltration):
 
 class CechFiltration(ExpandingBallFiltration):
 
-    def __init__(self, points: np.ndarray, max_radius, **kwargs):
+    def __init__(self, point_cloud: np.ndarray, max_radius, **kwargs):
         self.max_radius = max_radius
-        alpha = g.AlphaComplex(points=points).create_simplex_tree(max_alpha_square=self.max_radius**2)
+        alpha = g.AlphaComplex(points=point_cloud).create_simplex_tree(max_alpha_square=self.max_radius**2)
 
         for simplex, fv in alpha.get_filtration():
             alpha.assign_filtration(simplex, np.sqrt(fv))
@@ -480,7 +480,7 @@ class CechFiltration(ExpandingBallFiltration):
             else:
                 return max_radius
 
-        ExpandingBallFiltration.__init__(self, alpha, points, expansion_func, **kwargs)
+        ExpandingBallFiltration.__init__(self, alpha, point_cloud, expansion_func, **kwargs)
 
     def animate_filtration(self, to_fv=None):
         if to_fv is None:
