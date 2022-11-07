@@ -20,7 +20,7 @@ class ExampleScene(Scene):
         for s, v in zip(sc, filtration):
             st.insert(s, v)
 
-        simp_comp = CechPersistence(points, 2, 0)
+        simp_comp = ECT(st, points, np.array([1, 0, 0]))
         # self.play(ShowCreation(simp_comp))
         self.add(simp_comp)
         self.wait(2)

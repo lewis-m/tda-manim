@@ -196,13 +196,17 @@ class SweepingPlaneFiltration(Filtration):
         self.add(self.line)
         self.add(*extra_mobjects)
 
+    def scale(self, scale_factor, **kwargs):
+        super(SweepingPlaneFiltration, self).scale(scale_factor, **kwargs)
+        self.normal_vector *= scale_factor
+        return self
+
     def animate_filtration(self, to_fv=None):
         if to_fv is None:
             to_fv = self.max_fv + self.offset
 
         if to_fv >= self.current_fv:
             anims, fvs = [], []
-            print(self.current_fv)
             for s, v in self.simp_comp.get_filtration():
                 if self.current_fv <= v <= to_fv:
                     anims.append(ApplyFunction(self.change_simplex, self.mobject_dict[str(s)], run_time=0.01))
@@ -211,7 +215,7 @@ class SweepingPlaneFiltration(Filtration):
             fvs = np.array(fvs)
             fvs -= self.current_fv
 
-            self.add(self.line)
+            #self.add(self.line)
             self.line.generate_target()
             self.line.target.shift((to_fv - self.current_fv) * self.normal_vector)
 

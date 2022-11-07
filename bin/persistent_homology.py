@@ -43,6 +43,7 @@ class ECT(VGroup):
         self.filtration.scale(1 / self.filtration.size)
         self.add(self.filtration)
         self.add(self.ect_vis)
+        #self.filtration.shift(LEFT)
         self.ect_vis.next_to(self.filtration, 5*RIGHT)
 
     @property

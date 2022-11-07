@@ -21,7 +21,7 @@ class ECTFunction(VGroup):
         "x_labeled_nums": None,
         "x_axis_label": "",
         "y_axis_height": 6,
-        "y_tick_frequency": 1,
+        "y_tick_frequency": 0.5,
         "y_bottom_tick": None,  # Change if different from y_min
         "y_labeled_nums": None,
         "y_axis_label": "ECT",
@@ -100,7 +100,7 @@ class ECTFunction(VGroup):
         if self.x_labeled_nums is None:
             self.x_labeled_nums = []
         if self.x_leftmost_tick is None:
-            self.x_leftmost_tick = self.x_min
+            self.x_leftmost_tick = int(self.x_min) + 1
         x_axis = NumberLine(
             x_min=self.x_min,
             x_max=self.x_max + 0.2,
@@ -110,7 +110,8 @@ class ECTFunction(VGroup):
             numbers_with_elongated_ticks=self.x_labeled_nums,
             color=self.axes_color,
             stroke_width=1,
-            include_tip=True
+            include_tip=True,
+            include_numbers=True
         )
         x_axis.shift(self.graph_origin - x_axis.number_to_point(0))
         if len(self.x_labeled_nums) > 0:
@@ -133,10 +134,10 @@ class ECTFunction(VGroup):
         if self.y_labeled_nums is None:
             self.y_labeled_nums = []
         if self.y_bottom_tick is None:
-            self.y_bottom_tick = self.y_min
+            self.y_bottom_tick = int(self.y_min / self.y_tick_frequency) * self.y_tick_frequency
         y_axis = NumberLine(
-            x_min=self.y_min - 0.1,
-            x_max=self.y_max + 0.1,
+            x_min=self.y_min - 0.2,
+            x_max=self.y_max + 0.2,
             unit_size=self.space_unit_to_y,
             tick_frequency=self.y_tick_frequency,
             leftmost_tick=self.y_bottom_tick,
@@ -145,7 +146,9 @@ class ECTFunction(VGroup):
             line_to_number_vect=LEFT,
             label_direction=UP,
             stroke_width=1,
-            include_tip=True
+            include_tip=True,
+            include_ticks=True,
+            include_numbers=True
         )
         y_axis.shift(self.graph_origin + y_axis.number_to_point(self.x_min + 0.1)[0] * RIGHT)
         y_axis.rotate(np.pi / 2, about_point=y_axis.number_to_point(0))
@@ -400,7 +403,7 @@ class ECTFunction(VGroup):
 
     @property
     def size(self):
-        return max(self.x_axis_height, self.y_axis_height)
+        return max(self.x_max + 0.2 - self.x_min, self.y_axis_height)
 
 
 class Barcode(VGroup):
