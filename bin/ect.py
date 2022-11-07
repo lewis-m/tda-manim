@@ -52,13 +52,11 @@ def euler_curve(simp_comp, direction, interval=(-1, 1), points: int = 100):
 
     chi = []
 
-    # Includes first point of interval but not last! x spaced as (interval[1] - interval[0]) / points
-    critical_values.insert(0, interval[0])
     for x in np.linspace(interval[0], interval[1], points):
         if x - step_size < critical_values[c] <= x:
-            value = euler_char(filtration, critical_values[c])
             while critical_values[c] <= x + step_size and c < len(critical_values) - 1:
                 c += 1
+            value = euler_char(filtration, critical_values[c])
 
         chi.append(value)
 

@@ -18,8 +18,19 @@ from manimlib.mobject.geometry import Line
 class ECT(VGroup):
 
     def __init__(self, simp_comp, point_cloud, direction, extra_filt_mobjects=[], extra_vis_mobjects=[],
-                 previous_vis_mobjects=[],
-                 **kwargs):
+                 previous_vis_mobjects=[], **kwargs):
+        """
+        Animates the (smooth) Euler Characteristic curve in a given direction:
+        Filtration on the left hand panel
+        Curve(s) on the right hand panel
+        :param simp_comp: Simplicial complex as Gudhi SimplexTree
+        :param point_cloud: 2d coordinates of points in simp_comp given as numpy array
+        :param direction: direction in which to compute the filtration in
+        :param extra_filt_mobjects: Extra manim mojects to add to filtration (i.e. simplicial complex) panel
+        :param extra_vis_mobjects: Extra manim mojects to add to visualisation (i.e. curve) panel
+        :param previous_vis_mobjects: Previous curves to add to visualisation (i.e. curve) panel
+        :param kwargs: Further arguments to pass to Filtration class
+        """
         VGroup.__init__(self, **kwargs)
 
         direction = direction / np.linalg.norm(direction)
@@ -54,6 +65,7 @@ class ECT(VGroup):
     def max_fv(self):
         return self.filtration.max_fv + self.filtration.offset
 
+    # Overwrites animation methods to call filtration and barcode animation in sync
     def animate_filtration(self, to_fv=None, graphs=None):
         if graphs is None:
             graphs = ['plane', 'discrete']
@@ -147,9 +159,17 @@ class ECT(VGroup):
 
 class PersistentHomology(VGroup):
 
-    def __init__(self, simp_comp, point_cloud, hom_dim=0):
+    def __init__(self, simp_comp, point_cloud, hom_dim=0, **kwargs):
+        """
+        Base class for visualising persistent homology
+        Left: Filtration of simplicial complex (or point cloud)
+        Right: Animation of Barcode
+        :param simp_comp: filtration as Gudhi SimplexTree
+        :param point_cloud: 2d coordinates of points in simp_comp given as numpy array
+        :param hom_dim: homological dimension to visualise in barcode
+        """
         super().__init__()
-        self.filtration = Filtration(simp_comp, point_cloud, 'appearing')
+        self.filtration = Filtration(simp_comp, point_cloud, 'appearing', **kwargs)
         self.hom_dim = hom_dim
         self.barcode = Barcode(self.extract_barcode_in_dim(self.filtration.simp_comp.persistence(), self.hom_dim),
                                self.min_fv, self.max_fv)
@@ -168,6 +188,7 @@ class PersistentHomology(VGroup):
                 new_barcode.append(bar[1])
         return new_barcode
 
+    # Overwrites animation methods to call filtration and barcode animation in sync
     def animate_filtration(self, to_fv=None):
         if to_fv is None:
             to_fv = self.max_fv
@@ -248,12 +269,15 @@ class PersistentHomology(VGroup):
         return self.filtration.max_fv + self.filtration.offset
 
 
+# Further classes visualising a type of filtration (left) together with barcode (right)
+# For meanings of parameters, see filtrations.py
+
 class CechPersistence(PersistentHomology):
 
-    def __init__(self, point_cloud, max_radius, hom_dim=0):
+    def __init__(self, point_cloud, max_radius, hom_dim=0, **kwargs):
         point_cloud += 3 * LEFT
         filtration = CechFiltration(point_cloud, max_radius)
-        super().__init__(filtration.simp_comp, point_cloud, hom_dim)
+        super().__init__(filtration.simp_comp, point_cloud, hom_dim, **kwargs)
         self.remove(self.filtration)
         self.filtration = filtration
         self.add(self.filtration)
@@ -261,9 +285,19 @@ class CechPersistence(PersistentHomology):
 
 class RipsPersistence(PersistentHomology):
 
-    def __init__(self, point_cloud, max_radius, hom_dim=0):
+    def __init__(self, point_cloud, max_radius, hom_dim=0, **kwargs):
         filtration = RipsFiltration(point_cloud, max_radius)
-        super().__init__(filtration.simp_comp, point_cloud, hom_dim)
+        super().__init__(filtration.simp_comp, point_cloud, hom_dim, **kwargs)
+        self.remove(self.filtration)
+        self.filtration = filtration
+        self.add(self.filtration)
+
+
+class SweepingPlanePersistence(PersistentHomology):
+
+    def __init__(self, simp_comp, point_could, direction, hom_dim=0, **kwargs):
+        filtration = SweepingPlaneFiltration(simp_comp, point_could, plane_computed=False, normal_vector=direction)
+        super().__init__(filtration.simp_comp, point_cloud, hom_dim, **kwargs)
         self.remove(self.filtration)
         self.filtration = filtration
         self.add(self.filtration)
