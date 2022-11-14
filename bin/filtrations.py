@@ -509,8 +509,8 @@ class CechFiltration(ExpandingBallFiltration):
 
     def __init__(self, point_cloud: np.ndarray, max_radius, **kwargs):
         """
-        Animates a 2d Vietoris Rips Filtration (points with expanding balls)
-        :param point_cloud: Points used for Chech filtration (2d numpy array)
+        Animates a 2d Cech Filtration (points with expanding balls)
+        :param point_cloud: Points used for Cech filtration (2d numpy array)
         :param max_radius: Maximum radius to compute Chech filtration for
         :param kwargs: Further parameters to pass to ExpandingBallFiltration and Filtration classes
         """
